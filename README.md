@@ -1,6 +1,6 @@
 # Jira (mini) — Boards & Tickets
 
-Aplicación tipo Jira simplificada con dos features: **boards** y **tickets**.
+Aplicación tipo Jira simplificada con dos entidades: **boards** y **tickets**.
 Backend en Node.js + TypeScript + Express + PostgreSQL (Supabase). Frontend en
 Next.js (React) + TypeScript.
 
@@ -33,32 +33,26 @@ Un ticket siempre pertenece a exactamente un board.
 ## Server (`server/src/features`)
 
 El servidor sigue una arquitectura por capas (`router → controller → service → repository`)
-repetida en cada feature.
+en una sola feature, `boards`, que concentra las funciones de **boards** y
+**tickets** (están relacionadas 1→N, así que viven juntas).
 
 ### Feature `boards`
 
-Ubicada en `server/src/features/boards/`. Expone el CRUD de tableros:
+Ubicada en `server/src/features/boards/`. Expone:
 
 - `POST /api/boards` — crear un board (`name`).
 - `GET /api/boards` — listar todos los boards.
 - `GET /api/boards/:id` — obtener un board por id.
 - `DELETE /api/boards/:id` — eliminar un board (y sus tickets, en cascada).
-
-`boards.types.ts` concentra las interfaces en camelCase que usan **ambas**
-features (`Board`, `CreateBoardDTO`, `Ticket`, `CreateTicketDTO`,
-`UpdateTicketStatusDTO`, `TicketStatus`).
-
-### Feature `tickets`
-
-Ubicada en `server/src/features/tickets/`. Expone la gestión de tickets dentro
-de un board:
-
 - `POST /api/boards/:boardId/tickets` — crear un ticket dentro de un board (`content`).
 - `GET /api/boards/:boardId/tickets` — listar los tickets de un board.
-- `PATCH /api/tickets/:id` — actualizar el `status` de un ticket.
+- `PATCH /api/boards/:boardId/tickets/:id` — actualizar el `status` de un ticket.
 
-El servicio valida que el board (o el ticket) exista antes de operar, lanzando
-`404` (`Boom.notFound`) cuando no es así.
+`boards.types.ts` concentra las interfaces en camelCase de ambas entidades
+(`Board`, `CreateBoardDTO`, `Ticket`, `CreateTicketDTO`,
+`UpdateTicketStatusDTO`, `TicketStatus`). El servicio valida que el board (o
+el ticket) exista antes de operar, lanzando `404` (`Boom.notFound`) cuando no
+es así.
 
 ## Client (`client/`)
 
@@ -74,7 +68,7 @@ Muestra el nombre del board, un formulario para crear tickets
 (`CreateTicketForm`) y el tablero de tickets (`TicketBoard`) con **3
 columnas**: `TO-DO`, `IN-PROGRESS` y `DONE`. Cada ticket se renderiza como una
 `TicketCard` con un selector para cambiar su estado, lo que dispara el
-`PATCH /api/tickets/:id`.
+`PATCH /api/boards/:boardId/tickets/:id`.
 
 ### Contexts
 
@@ -105,15 +99,41 @@ cuando un cliente cree un board, ese nuevo board se refleje automáticamente
 en todos los demás clientes conectados (sin recargar la página), actualizando
 la lista de boards.
 
-### 2. Tiempo real al actualizar el status de un ticket (2.5)
+### 2. Tiempo real al crear un ticket (2.5)
+
+Implementar que, cuando se cree un ticket dentro de un board (vía
+`POST /api/boards/:boardId/tickets`), ese ticket se refleje automáticamente
+en todos los demás clientes que estén viendo ese mismo board, apareciendo en
+la columna `TO-DO` sin recargar la página.
+
+### 3. Tiempo real al actualizar el status de un ticket (2.5)
 
 Implementar que, cuando se actualice el `status` de un ticket (vía
-`PATCH /api/tickets/:id`), ese cambio se refleje automáticamente en todos los
+`PATCH /api/boards/:boardId/tickets/:id`), ese cambio se refleje automáticamente en todos los
 demás clientes que estén viendo ese mismo board, moviendo la `TicketCard` a la
 columna correspondiente sin recargar la página.
 
-### 3. Redirección al eliminar el board actual (2.5)
+## Pistas
 
-Si un usuario está dentro del detalle de un board (`/boards/:id`) y ese board
-es eliminado (por él mismo o por otro cliente, gracias al punto 1), debe ser
-redirigido automáticamente a la pantalla de lista de boards (`/`).
+Van a necesitar dos funciones de broadcast en el server (por ejemplo, en
+`boards.service.ts`), que llamen a Supabase Realtime vía
+`supabase.channel(...).httpSend(event, payload)` y limpien el canal al
+terminar. La idea es tener un canal global para la lista de boards y un
+canal por board para lo que pasa dentro de un board específico:
+
+```ts
+const broadcastToBoards = async (event: string, payload: object) => {
+  // canal: 'boards' — eventos para la pantalla de lista (ej: 'board-created')
+};
+
+const broadcastToBoard = async (boardId: string, event: string, payload: object) => {
+  // canal: `boards:${boardId}` — eventos para la pantalla de detalle de ESE board
+  // (ej: 'ticket-updated', 'board-deleted')
+};
+```
+
+Llámenlas desde los services existentes, después de escribir en la base de
+datos (no antes). En el client, usen `supabase.channel(name)` con
+`.on('broadcast', { event }, ...)` y `.subscribe()` para escuchar esos mismos
+eventos desde `BoardsContext` (canal `'boards'`) y `BoardContext` (canal
+`` `boards:${boardId}` ``).
