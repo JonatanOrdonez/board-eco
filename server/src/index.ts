@@ -4,7 +4,6 @@ import {PORT} from './config/config';
 import {errorHandler} from './middlewares/errorMiddleware';
 import {initDb} from './db/db';
 import boardsRouter from './features/boards/boards.router';
-import ticketsRouter from './features/tickets/tickets.router';
 
 const app = express();
 app.use(cors());
@@ -18,7 +17,6 @@ apiRouter.get('/', (req, res) => {
 });
 
 apiRouter.use('/', boardsRouter);
-apiRouter.use('/', ticketsRouter);
 
 app.use(errorHandler);
 
