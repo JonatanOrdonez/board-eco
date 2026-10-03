@@ -43,7 +43,7 @@ export const BoardProvider = ({
   };
 
   const updateTicketStatus = async (id: string, status: TicketStatus) => {
-    const res = await api.patch<Ticket>(`/tickets/${id}`, { status });
+    const res = await api.patch<Ticket>(`/boards/${boardId}/tickets/${id}`, { status });
     setTickets((prev) => prev.map((ticket) => (ticket.id === id ? res.data : ticket)));
   };
 
