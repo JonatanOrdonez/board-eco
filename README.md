@@ -99,18 +99,19 @@ cuando un cliente cree un board, ese nuevo board se refleje automáticamente
 en todos los demás clientes conectados (sin recargar la página), actualizando
 la lista de boards.
 
-### 2. Tiempo real al actualizar el status de un ticket (2.5)
+### 2. Tiempo real al crear un ticket (2.5)
+
+Implementar que, cuando se cree un ticket dentro de un board (vía
+`POST /api/boards/:boardId/tickets`), ese ticket se refleje automáticamente
+en todos los demás clientes que estén viendo ese mismo board, apareciendo en
+la columna `TO-DO` sin recargar la página.
+
+### 3. Tiempo real al actualizar el status de un ticket (2.5)
 
 Implementar que, cuando se actualice el `status` de un ticket (vía
 `PATCH /api/boards/:boardId/tickets/:id`), ese cambio se refleje automáticamente en todos los
 demás clientes que estén viendo ese mismo board, moviendo la `TicketCard` a la
 columna correspondiente sin recargar la página.
-
-### 3. Redirección al eliminar el board actual (2.5)
-
-Si un usuario está dentro del detalle de un board (`/boards/:id`) y ese board
-es eliminado (por él mismo o por otro cliente, gracias al punto 1), debe ser
-redirigido automáticamente a la pantalla de lista de boards (`/`).
 
 ## Pistas
 
